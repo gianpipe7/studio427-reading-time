@@ -15,7 +15,8 @@ import {
 const $ = (id) => document.getElementById(id);
 const device = getDevice();
 
-let session = null;
+// Usuario único — sin autenticación
+const USER_ID = "Studio427Co.";
 let docs = [];
 let current = null;          // {doc, reader, sync, numPages}
 let suppressRecordUntil = 0; // evita re-mandar la posición que acabamos de restaurar
@@ -41,30 +42,17 @@ async function boot() {
   if (!configured) return showScreen("screen-setup");
 
   registerServiceWorker();
-  wireAuth();
   wireLibrary();
   wireSeriesPanel();
   wireDocScreen();
   wireReader();
   wireNetwork();
 
-  const { data } = await supabase.auth.getSession();
-  session = data.session;
-  supabase.auth.onAuthStateChange((_event, next) => {
-    const changed = next?.user?.id !== session?.user?.id;
-    session = next;
-    if (changed) { docs = []; route(); }
-  });
-
   addEventListener("hashchange", route);
   await route();
 }
 
 async function route() {
-  if (!session) {
-    await closeDoc();
-    return showScreen("screen-auth");
-  }
   const reading = location.hash.match(/^#\/doc\/([0-9a-f]{64})$/);
   if (reading) {
     if (current?.doc.doc_id === reading[1]) return;
@@ -78,67 +66,6 @@ async function route() {
   else await showLibrary();
 }
 
-// ─────────────────────────────────────────────────────────────────────
-// Auth (OTP por email: el código de 6 dígitos funciona dentro de la PWA,
-// el magic link abriría Safari por fuera)
-// ─────────────────────────────────────────────────────────────────────
-function wireAuth() {
-  const form = $("auth-form"), msg = $("auth-msg"), submit = $("auth-submit");
-  let stage = "email";
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    submit.disabled = true;
-    msg.className = "msg";
-    try {
-      if (stage === "email") {
-        const email = $("auth-email").value.trim();
-        // emailRedirectTo tiene que estar en la allow-list de Supabase
-        // (Authentication → URL Configuration → Redirect URLs).
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            shouldCreateUser: true,
-            emailRedirectTo: location.origin + location.pathname,
-          },
-        });
-        if (error) throw error;
-        stage = "code";
-        $("auth-code-row").hidden = false;
-        $("auth-restart").hidden = false;
-        submit.textContent = "Entrar con el código";
-        msg.textContent = "Mail enviado a " + email;
-        $("auth-code").focus();
-      } else {
-        const token = $("auth-code").value.trim();
-        if (!token) {
-          msg.textContent = "Abrí el link del mail, o pegá el código si te llegó uno.";
-          return;
-        }
-        const { error } = await supabase.auth.verifyOtp({
-          email: $("auth-email").value.trim(), token, type: "email",
-        });
-        if (error) throw error;
-        msg.textContent = "";
-      }
-    } catch (err) {
-      msg.className = "msg error";
-      msg.textContent = err.message || "No pudimos completar el ingreso.";
-    } finally {
-      submit.disabled = false;
-    }
-  });
-
-  $("auth-restart").addEventListener("click", () => {
-    stage = "email";
-    $("auth-code-row").hidden = true;
-    $("auth-restart").hidden = true;
-    $("auth-code").value = "";
-    submit.textContent = "Enviar link";
-    msg.textContent = "";
-    $("auth-email").focus();
-  });
-}
 
 // ─────────────────────────────────────────────────────────────────────
 // Biblioteca
@@ -248,7 +175,7 @@ async function saveSeriesField() {
   seriesNotes.set(key, { ...(seriesNotes.get(key) || {}), series_key: key, series_name: seriesOpen, ...patch });
   renderLibrary();
 
-  const { queued } = await series.save(session.user.id, seriesOpen, patch);
+  const { queued } = await series.save(USER_ID, seriesOpen, patch);
   $("s-saved").textContent = queued
     ? "Guardado acá. Se sincroniza cuando vuelva la conexión."
     : "Guardado.";
@@ -273,16 +200,16 @@ async function showLibrary() {
   if (!stale) {
     // Orden obligatorio: primero las filas de documents, que son las que las
     // FK de bookmarks y reading_state exigen que existan.
-    lib.flushPendingDocs(session.user.id)
+    lib.flushPendingDocs(USER_ID)
       .then((n) => { if (n) toast(`${n} ${n === 1 ? "documento sincronizado" : "documentos sincronizados"}.`); })
-      .then(() => lib.flushMetaOutbox(session.user.id))
-      .then(() => series.flushOutbox(session.user.id))
+      .then(() => lib.flushMetaOutbox(USER_ID))
+      .then(() => series.flushOutbox(USER_ID))
       .then(() => bm.flushOutbox())
       .catch(() => {});
-    if (session) bm.pull(session.user.id).catch(() => {});
+    if (session) bm.pull(USER_ID).catch(() => {});
     // PDF que quedaron sin subir (import offline o subida fallida).
     for (const doc of docs.filter((d) => !d.storage_path)) {
-      lib.uploadPending(doc, session.user.id)
+      lib.uploadPending(doc, USER_ID)
         .then((updated) => { if (updated.storage_path) { doc.storage_path = updated.storage_path; } });
     }
   }
@@ -557,7 +484,7 @@ function wireDocScreen() {
     const doc = docScreen;
     if (!confirm(`¿Borrar "${doc.title}"? Se borra también la posición y los marcadores.`)) return;
     try {
-      await lib.deleteDocument(doc, session.user.id);
+      await lib.deleteDocument(doc, USER_ID);
       await removeCover(doc.doc_id);
       docs = docs.filter((d) => d.doc_id !== doc.doc_id);
       location.hash = "";
@@ -637,7 +564,7 @@ async function saveField(field, value) {
   Object.assign(doc, patch);
   renderDocScreen();
 
-  const { queued } = await lib.updateDocument(session.user.id, doc.doc_id, patch);
+  const { queued } = await lib.updateDocument(USER_ID, doc.doc_id, patch);
   $("doc-saved").textContent = queued
     ? "Guardado acá. Se sincroniza cuando vuelva la conexión."
     : "Guardado.";
@@ -647,7 +574,7 @@ async function saveField(field, value) {
 async function confirmDelete(doc) {
   if (!confirm(`¿Borrar "${doc.title}"? Se borra también la posición y los marcadores.`)) return;
   try {
-    await lib.deleteDocument(doc, session.user.id);
+    await lib.deleteDocument(doc, USER_ID);
     await removeCover(doc.doc_id);
     docs = docs.filter((d) => d.doc_id !== doc.doc_id);
     renderLibrary();
@@ -688,7 +615,7 @@ async function importFiles(list) {
   try {
     for (const file of list) {
       setLoadingText(`${file.name}`);
-      const result = await lib.importFile(file, session.user.id, (t) => setLoadingText(`${file.name} — ${t}`));
+      const result = await lib.importFile(file, USER_ID, (t) => setLoadingText(`${file.name} — ${t}`));
       if (result.pending) {
         toast(`"${result.title}" se guardó acá. Se sube solo cuando vuelva la conexión.`);
       } else if (!result.uploaded) {
@@ -833,7 +760,7 @@ async function openDoc(docId) {
     // Empezar a leer lo saca de "Por leer": pedirlo a mano sería burocracia.
     if ((doc.shelf || "por_leer") === "por_leer") {
       doc.shelf = "leyendo";
-      lib.updateDocument(session.user.id, docId, { shelf: "leyendo" }).catch(() => {});
+      lib.updateDocument(USER_ID, docId, { shelf: "leyendo" }).catch(() => {});
     }
 
     const initial = await sync.loadInitial();
@@ -877,7 +804,7 @@ function suggestFinished(doc, position, numPages) {
       onClick: async () => {
         const patch = { shelf: "terminado", finished_at: new Date().toISOString().slice(0, 10) };
         Object.assign(doc, patch);
-        await lib.updateDocument(session.user.id, doc.doc_id, patch);
+        await lib.updateDocument(USER_ID, doc.doc_id, patch);
         if (!$("screen-library").hidden) renderLibrary();
       },
     },
@@ -966,7 +893,7 @@ async function addBookmark() {
   if (!current) return;
   const { page, offset } = current.reader.currentPosition();
   await bm.add({
-    userId: session.user.id,
+    userId: USER_ID,
     docId: current.doc.doc_id,
     page, offset,
     label: `Pág. ${page + 1}`,
@@ -1012,9 +939,9 @@ function wireNetwork() {
     update();
     if (!session) return;
     try {
-      await lib.flushPendingDocs(session.user.id);   // primero, por las FK
-      await lib.flushMetaOutbox(session.user.id);
-      await series.flushOutbox(session.user.id);
+      await lib.flushPendingDocs(USER_ID);   // primero, por las FK
+      await lib.flushMetaOutbox(USER_ID);
+      await series.flushOutbox(USER_ID);
       await bm.flushOutbox();
     } catch { /* se reintenta en la próxima visita a la biblioteca */ }
   });

@@ -27,33 +27,6 @@
   </div>
 </section>
 
-<!-- ── Auth ─────────────────────────────────────────────────────────── -->
-<section id="screen-auth" class="screen center" hidden>
-  <form class="card" id="auth-form" autocomplete="on">
-    <h1 class="logo logo-big">
-      <img src="./icons/logo.png" alt="Studio 427 Co. — Reading Time">
-    </h1>
-    <p class="muted">Tu posición de lectura te sigue entre dispositivos.</p>
-
-    <label for="auth-email">Email</label>
-    <input id="auth-email" type="email" name="email" inputmode="email"
-           autocomplete="email" required placeholder="vos@ejemplo.com">
-
-    <div id="auth-code-row" hidden>
-      <p class="muted small">Abrí el link del mail <b>en este mismo dispositivo</b>.
-        Si tu proyecto está configurado para mandar código en vez de link,
-        pegalo acá:</p>
-      <label for="auth-code">Código de 6 dígitos (opcional)</label>
-      <input id="auth-code" type="text" inputmode="numeric" autocomplete="one-time-code"
-             pattern="[0-9]{6}" maxlength="6" placeholder="123456">
-    </div>
-
-    <button id="auth-submit" class="primary" type="submit">Enviar link</button>
-    <button id="auth-restart" class="link" type="button" hidden>Usar otro email</button>
-    <p id="auth-msg" class="msg" role="status" aria-live="polite"></p>
-  </form>
-</section>
-
 <!-- ── Biblioteca ───────────────────────────────────────────────────── -->
 <section id="screen-library" class="screen" hidden>
   <header class="bar">

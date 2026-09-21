@@ -1,6 +1,6 @@
 // Service worker: red primero, cache como red de emergencia.
 // Los PDF no pasan por acá — viven en IndexedDB, que es donde los pone la app.
-const VERSION = "v5";   // subir al cambiar el shell (nombre, paleta, iconos)
+const VERSION = "v6";   // subir al cambiar el shell (nombre, paleta, iconos)
 const CACHE = `pdfsync-${VERSION}`;
 
 const SHELL = [
