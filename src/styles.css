@@ -1,0 +1,415 @@
+/* Blanco de base, soft blue para las superficies secundarias y las portadas,
+   deep red como acento único. Serif para títulos de obra, sans para chrome:
+   es lo que separa una estantería de un gestor de archivos.
+   --shelf es el mismo azul rebajado, para que el hero no compita con las
+   portadas que tiene al lado. */
+:root {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #c1d5fe;
+  --shelf: #e8f0fe;
+  --text: #16203a;
+  --muted: #5a6780;
+  --line: #dbe3f2;
+  --accent: #6c0102;
+  --accent-bg: #6c0102;
+  --accent-on: #ffffff;
+  --accent-soft: rgba(108, 1, 2, .10);
+  --danger: #8c1d18;
+  --shadow-card: 0 1px 2px rgba(22, 32, 58, .07), 0 4px 14px rgba(22, 32, 58, .06);
+  --shadow-cover: 0 1px 2px rgba(22, 32, 58, .18), 0 8px 20px rgba(22, 32, 58, .16);
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --radius: 10px;
+  --gap: 16px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1420;
+    --surface: #151e2e;
+    --surface-2: #22304a;
+    --shelf: #111a28;
+    --text: #e2e9f7;
+    --muted: #94a3bd;
+    --line: #27334a;
+    --accent: #ff9089;
+    --accent-bg: #8d1113;
+    --accent-soft: rgba(255, 144, 137, .14);
+    --danger: #ff9089;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-cover: 0 2px 4px rgba(0, 0, 0, .5), 0 10px 24px rgba(0, 0, 0, .45);
+  }
+}
+
+* { box-sizing: border-box; }
+/* Cualquier regla con clase le gana al `display:none` que el user-agent le
+   pone a [hidden]. Sin esto los paneles arrancan abiertos. */
+[hidden] { display: none !important; }
+html, body {
+  margin: 0; height: 100%;
+  background: var(--bg); color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+h1 { font-size: 1.1rem; margin: 0; font-weight: 600; }
+/* Logo tal cual viene el archivo: no se recorta ni se recolorea, solo se
+   redondean las esquinas para que se asiente en el borde superior. */
+.logo { display: block; line-height: 0; margin: 0; }
+.logo img { display: block; width: 100%; height: auto; border-radius: 14px; }
+/* .bar h1 { flex: 1 } le gana por especificidad y con flex-basis:0 el width
+   se ignora, así que el badge hay que fijarlo desde dentro de .bar. */
+.bar .logo-badge { flex: 0 0 40px; width: 40px; }
+.logo-badge img { border-radius: 10px; }
+.logo-big { width: 132px; margin: 0 auto 6px; }
+.logo-big img { border-radius: 22px; }
+
+h2 { font-size: .95rem; margin: 0 0 12px; font-weight: 600; }
+.section-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+.sort { display: flex; align-items: center; gap: 6px; margin: 0; }
+.sort select { width: auto; padding: 5px 8px; font-size: .8rem; }
+.section-title {
+  font-family: var(--serif); font-size: 1.05rem; font-weight: 600;
+  margin: 0; display: flex; align-items: baseline; gap: 10px;
+}
+.section-title small { font-family: inherit; font-size: .78rem; color: var(--muted); font-weight: 400; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
+pre { background: var(--surface-2); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+.muted { color: var(--muted); }
+.small { font-size: .85rem; }
+.empty { color: var(--muted); text-align: center; padding: 32px 16px; }
+
+.screen { display: none; height: 100%; flex-direction: column; }
+.screen:not([hidden]) { display: flex; }
+.screen.center { align-items: center; justify-content: center; padding: var(--gap); }
+
+/* ── Cards / formularios ─────────────────────────────────────────── */
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius); padding: 24px;
+  width: 100%; max-width: 380px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+label { font-size: .85rem; color: var(--muted); margin-top: 6px; }
+input[type=email], input[type=text], input[type=number], input[type=date], input[type=search], select {
+  font: inherit; padding: 10px 12px; width: 100%;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+input:focus-visible, button:focus-visible, .viewer:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid transparent; }
+button.primary { background: var(--accent-bg); color: var(--accent-on); padding: 10px 16px; font-weight: 600; }
+button.ghost { background: var(--surface-2); color: var(--text); border-color: var(--line); padding: 8px 12px; }
+button.link { background: none; color: var(--accent); padding: 4px; text-decoration: underline; }
+button.small { padding: 6px 10px; font-size: .85rem; }
+button:disabled { opacity: .5; cursor: default; }
+.msg { min-height: 1.2em; font-size: .85rem; margin: 4px 0 0; }
+.msg.error { color: var(--danger); }
+
+/* ── Barras ──────────────────────────────────────────────────────── */
+.bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: calc(var(--safe-top) + 10px) var(--gap) 10px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
+  flex: 0 0 auto;
+}
+.bar h1 { flex: 1; min-width: 0; }
+.bar-actions { display: flex; gap: 6px; align-items: center; }
+.badge {
+  font-size: .72rem; padding: 3px 7px; border-radius: 999px;
+  background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+}
+
+/* ── Biblioteca ──────────────────────────────────────────────────── */
+.library-scroll { flex: 1; overflow-y: auto; }
+.section { padding: 20px var(--gap) 4px; }
+.section + .section { padding-top: 8px; }
+
+/* ── Seguí leyendo ────────────────────────────────────────────────── */
+.hero {
+  background: var(--shelf); border-bottom: 1px solid var(--line);
+  padding: 20px var(--gap);
+}
+.hero-inner {
+  display: flex; gap: 18px; align-items: flex-start;
+  max-width: 720px; margin: 0 auto; width: 100%;
+  background: none; border: none; padding: 0; color: inherit;
+  text-align: left; cursor: pointer;
+}
+.hero .cover { width: 104px; flex: 0 0 104px; }
+.hero-body { flex: 1; min-width: 0; padding-top: 2px; }
+.hero-kicker {
+  font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent); font-weight: 700; margin-bottom: 6px;
+}
+.hero-title {
+  font-family: var(--serif); font-size: 1.3rem; line-height: 1.25;
+  margin: 0 0 4px; font-weight: 600;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.hero-sub { font-size: .83rem; color: var(--muted); margin-bottom: 12px; }
+.hero-cta {
+  display: inline-block; background: var(--accent-bg); color: var(--accent-on);
+  padding: 8px 18px; border-radius: 999px; font-size: .85rem; font-weight: 600;
+}
+
+/* ── Estantería ───────────────────────────────────────────────────── */
+.shelf {
+  list-style: none; margin: 0; padding: 14px 0 0;
+  display: grid; gap: 22px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+}
+.shelf-item { position: relative; min-width: 0; }
+/* El encabezado ocupa toda la fila de la grilla, así los grupos de saga se
+   leen como estantes separados sin romper el layout de tarjetas. */
+.shelf-group {
+  grid-column: 1 / -1; display: flex; align-items: baseline; gap: 8px;
+  margin: 6px 0 -6px; padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.shelf-group:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+.shelf-group b { font-family: var(--serif); font-size: .95rem; font-weight: 600; }
+.shelf-group span { font-size: .74rem; color: var(--muted); }
+.shelf-open {
+  display: block; width: 100%; background: none; border: none;
+  padding: 0; color: inherit; text-align: left; cursor: pointer;
+}
+
+/* La portada define la silueta de toda la grilla, así que el alto es fijo
+   aunque el PDF sea apaisado: object-fit recorta en vez de desalinear. */
+.cover {
+  position: relative; width: 100%; aspect-ratio: 1 / 1.4;
+  border-radius: 3px 6px 6px 3px; overflow: hidden;
+  background: var(--surface-2);
+  box-shadow: var(--shadow-cover);
+  /* Lomo: la franja que hace que se lea como libro y no como miniatura. */
+  border-left: 3px solid var(--accent);
+}
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover-fallback {
+  position: absolute; inset: 0; padding: 14px 12px;
+  display: flex; flex-direction: column; justify-content: center;
+  font-family: var(--serif); font-size: .82rem; line-height: 1.3;
+  color: var(--text); background: var(--surface-2);
+  overflow: hidden;
+}
+.cover-fallback span {
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+}
+.cover-fallback::after {
+  content: ""; display: block; width: 28px; height: 2px;
+  background: var(--accent); margin-top: 10px; flex: none;
+}
+.shelf-title {
+  font-family: var(--serif); font-size: .92rem; line-height: 1.25;
+  margin: 10px 0 2px; font-weight: 600;
+  /* Dos líneas fijas: así el progreso de todas las tarjetas queda a la
+     misma altura aunque los títulos midan distinto. */
+  min-height: 2.5em;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.shelf-sub {
+  font-size: .73rem; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.shelf-del {
+  position: absolute; top: 6px; right: 6px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(255, 255, 255, .92); color: var(--text);
+  border: 1px solid var(--line); font-size: .8rem; line-height: 1;
+  opacity: 0; transition: opacity .12s;
+}
+.shelf-item:hover .shelf-del, .shelf-del:focus-visible { opacity: 1; }
+@media (hover: none) { .shelf-del { opacity: 1; } }
+
+/* ── Progreso ─────────────────────────────────────────────────────── */
+.doc-progress { display: flex; align-items: center; gap: 7px; margin-top: 7px; }
+.progress { flex: 1; height: 4px; background: var(--accent-soft); border-radius: 2px; overflow: hidden; }
+.progress > i { display: block; height: 100%; background: var(--accent-bg); border-radius: 2px; }
+.progress-pct { font-size: .68rem; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 2.4em; text-align: right; }
+.progress-pct.done { color: var(--accent); font-weight: 600; }
+.hero .doc-progress { margin-top: 0; margin-bottom: 14px; max-width: 320px; }
+
+/* ── Colecciones ──────────────────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+  padding: 10px var(--gap) 0;
+}
+.tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 0 0 auto; padding: 6px 14px; border-radius: 999px;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid transparent; font-size: .82rem; white-space: nowrap;
+}
+.tab[aria-selected="true"] { background: var(--accent-bg); color: var(--accent-on); font-weight: 600; }
+.tab .n { opacity: .65; margin-left: 5px; font-variant-numeric: tabular-nums; }
+
+.shelf-badge {
+  display: inline-block; font-size: .64rem; letter-spacing: .05em;
+  text-transform: uppercase; font-weight: 700; color: var(--accent);
+  margin-bottom: 3px;
+}
+
+/* ── Estrellas ────────────────────────────────────────────────────── */
+.stars { display: inline-flex; gap: 2px; }
+.stars button {
+  background: none; border: none; padding: 2px; font-size: 1.25rem;
+  line-height: 1; color: var(--line); cursor: pointer;
+}
+.stars button.on { color: var(--accent); }
+.stars.readonly { pointer-events: none; }
+.stars.small button { font-size: .95rem; padding: 0; }
+/* Alto fijo y flex: con inline-flex el line-box suma el descender y las
+   tarjetas puntuadas quedaban 6px más altas que las demás. */
+.stars-slot { height: 18px; margin-top: 3px; display: flex; align-items: center; overflow: hidden; }
+
+/* ── Ficha del documento ──────────────────────────────────────────── */
+.doc-screen { overflow-y: auto; }
+.doc-hero {
+  display: flex; gap: 20px; padding: 20px var(--gap);
+  background: var(--shelf); border-bottom: 1px solid var(--line);
+  align-items: flex-start;
+}
+.doc-hero .cover { width: 130px; flex: 0 0 130px; }
+.doc-hero-body { flex: 1; min-width: 0; }
+.doc-hero h2 {
+  font-family: var(--serif); font-size: 1.5rem; line-height: 1.2;
+  margin: 4px 0 6px; font-weight: 600;
+}
+.doc-hero .byline { font-size: .9rem; color: var(--muted); margin: 0 0 10px; }
+.doc-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+.form-grid {
+  padding: 18px var(--gap) 40px; display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  max-width: 860px;
+}
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { margin: 0; }
+.field.wide { grid-column: 1 / -1; }
+.field textarea {
+  font: inherit; padding: 10px 12px; min-height: 110px; resize: vertical;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.saved-hint { font-size: .72rem; color: var(--muted); min-height: 1em; }
+
+/* ── Zona de carga ────────────────────────────────────────────────── */
+.dropzone {
+  margin: 4px var(--gap) var(--gap); padding: 16px; text-align: center;
+  border: 1.5px dashed var(--line); border-radius: var(--radius); color: var(--muted);
+  font-size: .85rem;
+}
+.dropzone.over { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.dropzone p { margin: 0; }
+
+/* ── Lector ──────────────────────────────────────────────────────── */
+.reader { position: relative; }
+.reader-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .95rem; font-family: var(--serif); font-weight: 600; }
+.viewer {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface-2); padding: 12px 0;
+}
+@media (prefers-color-scheme: dark) { .viewer { background: #080d16; } }
+.pdf-page {
+  position: relative; margin: 0 auto 12px; background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,.18);
+}
+.pdf-page canvas { display: block; width: 100%; height: 100%; }
+/* Capa de texto de pdf.js: spans transparentes sobre el canvas. Las
+   posiciones vienen en px multiplicados por --scale-factor. */
+.textLayer {
+  position: absolute; inset: 0; overflow: clip;
+  line-height: 1; text-size-adjust: none; forced-color-adjust: none;
+  transform-origin: 0 0; caret-color: CanvasText; z-index: 2;
+}
+.textLayer :is(span, br) {
+  position: absolute; color: transparent;
+  white-space: pre; cursor: text; transform-origin: 0% 0%;
+}
+.textLayer span.markedContent { top: 0; height: 0; }
+.textLayer ::selection { background: rgba(108, 1, 2, .28); }
+.textLayer br::selection { background: transparent; }
+.textLayer .endOfContent {
+  position: absolute; inset: 100% 0 0; z-index: -1;
+  cursor: default; user-select: none;
+}
+.textLayer.selecting .endOfContent { top: 0; }
+
+.pdf-page .ph {
+  position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center;
+  color: #b0b0aa; font-size: .8rem;
+}
+.pagebar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px var(--gap) calc(var(--safe-bot) + 8px);
+  border-top: 1px solid var(--line); background: var(--surface); flex: 0 0 auto;
+}
+.pagebar input { width: 72px; text-align: center; }
+.zoom { display: flex; align-items: center; gap: 4px; }
+.zoom select {
+  width: auto; padding: 5px 8px; font-size: .8rem;
+  max-width: 9.5rem;
+}
+@media (max-width: 520px) { .zoom select { max-width: 6.2rem; font-size: .75rem; } }
+.sync { margin-left: auto; font-size: .78rem; color: var(--muted); }
+.sync.warn { color: var(--danger); }
+
+/* ── Paneles ─────────────────────────────────────────────────────── */
+.panel {
+  position: absolute; z-index: 20; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px; box-shadow: 0 8px 28px rgba(0,0,0,.22);
+  display: flex; flex-direction: column; gap: 8px;
+}
+#account-panel { top: calc(var(--safe-top) + 52px); right: var(--gap); width: min(300px, calc(100vw - 32px)); }
+.panel.right {
+  top: calc(var(--safe-top) + 52px); right: var(--gap); bottom: 60px;
+  width: min(320px, calc(100vw - 32px)); overflow-y: auto;
+}
+.bookmark-list { list-style: none; margin: 0; padding: 0; }
+.search-row { display: flex; gap: 6px; }
+.search-row input { flex: 1; }
+.hit { display: block; width: 100%; text-align: left; background: none; border: none;
+       color: inherit; padding: 8px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.hit b { display: block; font-size: .8rem; color: var(--accent); margin-bottom: 2px; }
+.hit span { font-size: .8rem; color: var(--muted); }
+.bookmark-list li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.bookmark-list button.link { flex: 1; text-align: left; text-decoration: none; }
+
+/* ── Toasts / loading ────────────────────────────────────────────── */
+.toasts {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(var(--safe-bot) + 68px); z-index: 50;
+  display: flex; flex-direction: column; gap: 8px;
+  width: min(420px, calc(100vw - 24px));
+}
+.toast {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 12px 14px; box-shadow: 0 6px 24px rgba(0,0,0,.25);
+  display: flex; align-items: center; gap: 12px; font-size: .88rem;
+}
+.toast span { flex: 1; }
+.toast.error { border-color: var(--danger); }
+.loading {
+  position: fixed; inset: 0; z-index: 60; display: flex;
+  align-items: center; justify-content: center; gap: 12px; flex-direction: column;
+  background: color-mix(in srgb, var(--bg) 88%, transparent); color: var(--muted);
+}
+.loading[hidden] { display: none; }
+.spinner {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2.5px solid var(--line); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
