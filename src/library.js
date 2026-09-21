@@ -2,7 +2,8 @@ import { supabase, BUCKET } from "./supabase.js";
 import { files, kv, CACHE_CAP_BYTES } from "./idb.js";
 import { sha256Hex } from "./hash.js";
 import { getDocument } from "./pdf.js";
-import { coverFromPdf } from "./covers.js";
+import { coverFromPdf, ensureCover } from "./covers.js";
+import { covers } from "./idb.js";
 
 const CACHE_KEY = "docs:cache";
 const PENDING_DOCS = "docs:pending";
@@ -208,6 +209,23 @@ export async function uploadPending(doc, userId) {
   await supabase.from("documents")
     .update({ storage_path: path }).eq("user_id", userId).eq("doc_id", doc.doc_id);
   return { ...doc, storage_path: path };
+}
+
+/**
+ * Genera las portadas que falten, para los documentos cuyos bytes ya están
+ * en este dispositivo. Cubre lo importado antes de que existieran las
+ * portadas y cualquier caso donde la generación no llegó a completarse.
+ * Devuelve cuántas creó, para que quien llama vuelva a renderizar.
+ */
+export async function backfillCovers(docs) {
+  let hechas = 0;
+  for (const doc of docs) {
+    if (await covers.get(doc.doc_id).catch(() => null)) continue;
+    const blob = await files.get(doc.doc_id).catch(() => null);
+    if (!blob) continue;                       // sin bytes locales: no hay de dónde
+    if (await ensureCover(doc.doc_id, blob)) hechas++;
+  }
+  return hechas;
 }
 
 /**

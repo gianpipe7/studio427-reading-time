@@ -5,6 +5,7 @@ import { createReader } from "./reader.js";
 import * as lib from "./library.js";
 import * as bm from "./bookmarks.js";
 import { ensureCover, coverUrl, removeCover } from "./covers.js";
+import * as series from "./series.js";
 import { clearAll } from "./idb.js";
 import { SORTERS, sortDocs, groupBySeries, seriesLabel, seriesKey } from "./sort.js";
 import {
@@ -28,7 +29,9 @@ const SHELVES = [
   { key: "por_leer", label: "Por leer" },
   { key: "leyendo", label: "En lectura" },
   { key: "terminado", label: "Terminados" },
+  { key: "sagas", label: "Sagas" },
 ];
+let seriesNotes = new Map();   // clave de saga -> fila de series_notes
 const shelfLabel = (key) => SHELVES.find((s) => s.key === key)?.label || "Por leer";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -40,6 +43,7 @@ async function boot() {
   registerServiceWorker();
   wireAuth();
   wireLibrary();
+  wireSeriesPanel();
   wireDocScreen();
   wireReader();
   wireNetwork();
@@ -206,12 +210,64 @@ async function refreshCacheUsage() {
     `${formatBytes(bytes) || "0 kB"} en ${count} ${count === 1 ? "archivo" : "archivos"} · tope ${formatBytes(lib.cacheCap())}`;
 }
 
+let seriesOpen = null;   // nombre de la saga abierta en el panel
+
+function wireSeriesPanel() {
+  $("s-close").addEventListener("click", () => { $("series-panel").hidden = true; });
+  for (const id of ["s-complete", "s-next", "s-note"]) {
+    $(id).addEventListener("change", saveSeriesField);
+  }
+}
+
+function openSeriesPanel(name) {
+  seriesOpen = name;
+  const row = seriesNotes.get(seriesKey(name)) || {};
+  $("series-panel-title").textContent = name;
+  $("s-complete").checked = !!row.complete;
+  $("s-next").value = row.next_release || "";
+  $("s-note").value = row.note || "";
+  $("s-next").disabled = !!row.complete;
+  $("s-saved").textContent = "";
+  $("account-panel").hidden = true;
+  $("series-panel").hidden = false;
+}
+
+async function saveSeriesField() {
+  if (!seriesOpen) return;
+  const completa = $("s-complete").checked;
+  const patch = {
+    complete: completa,
+    // Una saga completa no tiene próxima entrega: guardarla sería mentira.
+    next_release: completa ? null : ($("s-next").value || null),
+    note: $("s-note").value.trim() || null,
+  };
+  $("s-next").disabled = completa;
+  if (completa) $("s-next").value = "";
+
+  const key = seriesKey(seriesOpen);
+  seriesNotes.set(key, { ...(seriesNotes.get(key) || {}), series_key: key, series_name: seriesOpen, ...patch });
+  renderLibrary();
+
+  const { queued } = await series.save(session.user.id, seriesOpen, patch);
+  $("s-saved").textContent = queued
+    ? "Guardado acá. Se sincroniza cuando vuelva la conexión."
+    : "Guardado.";
+  setTimeout(() => { $("s-saved").textContent = ""; }, 3000);
+}
+
 async function showLibrary() {
   showScreen("screen-library");
   $("account-panel").hidden = true;
-  const { docs: list, stale } = await lib.listDocuments();
+  const [{ docs: list, stale }, notas] = await Promise.all([
+    lib.listDocuments(),
+    series.load(),
+  ]);
   docs = list;
+  seriesNotes = notas;
   renderLibrary();
+
+  // Portadas que falten y cuyos bytes ya estén acá: se generan y re-renderiza.
+  lib.backfillCovers(docs).then((n) => { if (n) renderLibrary(); }).catch(() => {});
   if (stale) toast("Sin conexión: mostrando la última lista que bajamos.");
   lib.pruneCache(docs).catch(() => {});
   if (!stale) {
@@ -220,6 +276,7 @@ async function showLibrary() {
     lib.flushPendingDocs(session.user.id)
       .then((n) => { if (n) toast(`${n} ${n === 1 ? "documento sincronizado" : "documentos sincronizados"}.`); })
       .then(() => lib.flushMetaOutbox(session.user.id))
+      .then(() => series.flushOutbox(session.user.id))
       .then(() => bm.flushOutbox())
       .catch(() => {});
     if (session) bm.pull(session.user.id).catch(() => {});
@@ -235,10 +292,16 @@ function renderLibrary() {
   renderHero();
   renderTabs();
 
+  const enSagas = activeShelf === "sagas";
   const filtered = activeShelf === "todos"
     ? docs
-    : docs.filter((d) => (d.shelf || "por_leer") === activeShelf);
+    : enSagas
+      ? docs.filter((d) => seriesKey(d.series))   // solo lo que pertenece a una saga
+      : docs.filter((d) => (d.shelf || "por_leer") === activeShelf);
   const visible = sortDocs(filtered, sortBy);
+
+  // En la pestaña de sagas el orden lo manda la saga, no el selector.
+  $("sort-select").disabled = enSagas;
 
   const ul = $("doc-list");
   ul.replaceChildren();
@@ -251,7 +314,7 @@ function renderLibrary() {
     : "";
 
   // En modo saga la grilla se corta en grupos; en el resto va de una tirada.
-  const runs = sortBy === "series"
+  const runs = (enSagas || sortBy === "series")
     ? groupBySeries(filtered)
     : [{ name: null, docs: visible }];
 
@@ -264,10 +327,53 @@ function renderLibrary() {
       const count = document.createElement("span");
       count.textContent = `${run.docs.length} ${run.docs.length === 1 ? "título" : "títulos"}`;
       head.append(name, count);
+
+      if (run.key) {
+        const btn = document.createElement("button");
+        btn.className = "note-btn";
+        btn.textContent = seriesNotes.get(run.key) ? "editar notas" : "+ notas";
+        btn.onclick = () => openSeriesPanel(run.name);
+        head.append(btn);
+      }
       ul.append(head);
+
+      const meta = buildSeriesMeta(run.key);
+      if (meta) ul.append(meta);
     }
     for (const doc of run.docs) ul.append(buildCard(doc, run.name));
   }
+}
+
+/** Línea de estado de la saga: completa, próxima entrega, nota. */
+function buildSeriesMeta(key) {
+  const row = key && seriesNotes.get(key);
+  if (!row) return null;
+  const partes = [];
+
+  const li = document.createElement("li");
+  li.className = "series-meta";
+
+  const pill = document.createElement("span");
+  pill.className = "pill";
+  pill.textContent = row.complete ? "completa" : "en curso";
+  li.append(pill);
+
+  if (!row.complete && row.next_release) {
+    const fecha = new Date(row.next_release + "T00:00");
+    partes.push(`próxima entrega: ${fecha.toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" })}`);
+  }
+  if (partes.length) {
+    const span = document.createElement("span");
+    span.textContent = partes.join(" · ");
+    li.append(span);
+  }
+  if (row.note) {
+    const nota = document.createElement("span");
+    nota.className = "nota";
+    nota.textContent = row.note;
+    li.append(nota);
+  }
+  return li;
 }
 
 /** Una tarjeta de la estantería. */
@@ -322,6 +428,8 @@ function renderTabs() {
     const key = doc.shelf || "por_leer";
     counts[key] = (counts[key] || 0) + 1;
   }
+  // La pestaña de sagas cuenta sagas, no libros.
+  counts.sagas = new Set(docs.map((d) => seriesKey(d.series)).filter(Boolean)).size;
   const bar = $("tabs");
   bar.replaceChildren();
   for (const { key, label } of SHELVES) {
@@ -690,7 +798,11 @@ async function openDoc(docId) {
   try {
     const blob = await lib.ensureFile(doc);
     lib.pruneCache(docs, docId).catch(() => {});
-    ensureCover(docId, blob).catch(() => {});   // la primera vez que llega el PDF
+    // Primera vez que llegan los bytes: la portada aparece cuando termina,
+    // sin esperar a que el usuario vuelva a entrar a la biblioteca.
+    ensureCover(docId, blob).then((hecha) => {
+      if (hecha && !$("screen-library").hidden) renderLibrary();
+    }).catch(() => {});
     showScreen("screen-reader");
     $("reader-title").textContent = doc.title;
     closePanels();
@@ -900,6 +1012,7 @@ function wireNetwork() {
     try {
       await lib.flushPendingDocs(session.user.id);   // primero, por las FK
       await lib.flushMetaOutbox(session.user.id);
+      await series.flushOutbox(session.user.id);
       await bm.flushOutbox();
     } catch { /* se reintenta en la próxima visita a la biblioteca */ }
   });

@@ -177,6 +177,33 @@ button:disabled { opacity: .5; cursor: default; }
 .shelf-group:first-child { border-top: none; padding-top: 0; margin-top: 0; }
 .shelf-group b { font-family: var(--serif); font-size: .95rem; font-weight: 600; }
 .shelf-group span { font-size: .74rem; color: var(--muted); }
+.shelf-group .note-btn {
+  margin-left: auto; background: none; border: none; color: var(--accent);
+  font-size: .74rem; text-decoration: underline; padding: 2px 4px; cursor: pointer;
+}
+/* Estado de la saga bajo el encabezado: ocupa toda la fila de la grilla. */
+.series-meta {
+  grid-column: 1 / -1; margin: -2px 0 2px;
+  font-size: .76rem; color: var(--muted);
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline;
+}
+.series-meta .pill {
+  background: var(--accent-soft); color: var(--accent);
+  padding: 1px 8px; border-radius: 999px; font-weight: 600; font-size: .7rem;
+}
+.series-meta .nota { font-style: italic; }
+
+#series-panel {
+  top: calc(var(--safe-top) + 52px); right: var(--gap);
+  width: min(340px, calc(100vw - 32px));
+}
+#series-panel textarea {
+  font: inherit; padding: 10px 12px; min-height: 90px; resize: vertical;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px;
+}
+.check { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--text); margin-top: 4px; }
+.check input { width: auto; }
 .shelf-open {
   display: block; width: 100%; background: none; border: none;
   padding: 0; color: inherit; text-align: left; cursor: pointer;

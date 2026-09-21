@@ -66,6 +66,12 @@ export function releaseCover(docId) {
   if (url) { URL.revokeObjectURL(url); OBJECT_URLS.delete(docId); }
 }
 
+/** Rehace la portada aunque ya exista (página 1 en blanco, PDF reemplazado). */
+export async function regenerateCover(docId, pdfBlob) {
+  await removeCover(docId);
+  return ensureCover(docId, pdfBlob);
+}
+
 export async function removeCover(docId) {
   releaseCover(docId);
   await covers.del(docId).catch(() => {});
