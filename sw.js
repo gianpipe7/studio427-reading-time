@@ -1,6 +1,6 @@
 // Service worker: red primero, cache como red de emergencia.
 // Los PDF no pasan por acá — viven en IndexedDB, que es donde los pone la app.
-const VERSION = "v4";   // subir al cambiar el shell (nombre, paleta, iconos)
+const VERSION = "v5";   // subir al cambiar el shell (nombre, paleta, iconos)
 const CACHE = `pdfsync-${VERSION}`;
 
 const SHELL = [
@@ -8,7 +8,7 @@ const SHELL = [
   "./src/styles.css", "./src/app.js", "./src/supabase.js", "./src/device.js",
   "./src/idb.js", "./src/hash.js", "./src/ui.js", "./src/sync.js",
   "./src/bookmarks.js", "./src/library.js", "./src/reader.js", "./src/pdf.js",
-  "./src/covers.js", "./src/sort.js",
+  "./src/covers.js", "./src/sort.js", "./src/series.js",
   "./vendor/supabase.js", "./vendor/esm/node/buffer.js",
   "./vendor/esm/supabase/supabase-js.bundle.js",
   "./vendor/pdfjs/pdf.js", "./vendor/pdfjs/pdf.worker.js",

@@ -107,6 +107,20 @@
     </div>
   </div>
 
+  <aside id="series-panel" class="panel" hidden>
+    <h2 id="series-panel-title"></h2>
+    <label class="check">
+      <input id="s-complete" type="checkbox"> <span>Saga completa</span>
+    </label>
+    <label for="s-next">Próxima entrega</label>
+    <input id="s-next" type="date">
+    <label for="s-note">Notas</label>
+    <textarea id="s-note" maxlength="2000"
+              placeholder="El tomo 4 sale en marzo. Falta conseguir el 2 en español…"></textarea>
+    <p id="s-saved" class="saved-hint" role="status" aria-live="polite"></p>
+    <button id="s-close" class="ghost">Cerrar</button>
+  </aside>
+
   <div id="account-panel" class="panel" hidden>
     <p class="muted small">Sesión: <span id="account-email"></span></p>
     <label for="device-name">Nombre de este dispositivo</label>
