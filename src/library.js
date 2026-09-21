@@ -2,7 +2,7 @@ import { supabase, BUCKET } from "./supabase.js";
 import { files, kv, CACHE_CAP_BYTES } from "./idb.js";
 import { sha256Hex } from "./hash.js";
 import { getDocument } from "./pdf.js";
-import { coverFromPdf, ensureCover } from "./covers.js";
+import { coverFromPdf, ensureCover, uploadCover, downloadCover, removeRemoteCover } from "./covers.js";
 import { covers } from "./idb.js";
 
 const CACHE_KEY = "docs:cache";
@@ -67,7 +67,7 @@ export async function importFile(file, userId, onProgress = () => {}) {
     meta?.info?.Title?.trim() || file.name.replace(/\.pdf$/i, "") || "Sin título";
   const pageCount = pdf.numPages;
   onProgress("Generando portada…");
-  await coverFromPdf(docId, pdf);   // antes del destroy: no reabrimos el PDF
+  const portada = await coverFromPdf(docId, pdf);   // antes del destroy
   pdf.destroy();
 
   onProgress("Guardando…");
@@ -121,6 +121,7 @@ export async function importFile(file, userId, onProgress = () => {}) {
   }
   await supabase.from("documents")
     .update({ storage_path: path }).eq("user_id", userId).eq("doc_id", docId);
+  uploadCover(path, portada).catch(() => {});   // para los otros dispositivos
   return { ...row, storage_path: path, uploaded: true };
 }
 
@@ -221,9 +222,16 @@ export async function backfillCovers(docs) {
   let hechas = 0;
   for (const doc of docs) {
     if (await covers.get(doc.doc_id).catch(() => null)) continue;
+
     const blob = await files.get(doc.doc_id).catch(() => null);
-    if (!blob) continue;                       // sin bytes locales: no hay de dónde
-    if (await ensureCover(doc.doc_id, blob)) hechas++;
+    if (blob) {
+      // El PDF está acá: la generamos y la subimos para los demás.
+      const portada = await ensureCover(doc.doc_id, blob);
+      if (portada) { hechas++; uploadCover(doc.storage_path, portada).catch(() => {}); }
+      continue;
+    }
+    // Sin el PDF, probamos con la que dejó el dispositivo donde se importó.
+    if (await downloadCover(doc.doc_id, doc.storage_path)) hechas++;
   }
   return hechas;
 }
@@ -259,6 +267,7 @@ export async function deleteDocument(doc, userId) {
   }
   if (doc.storage_path) {
     await supabase.storage.from(BUCKET).remove([doc.storage_path]);
+    await removeRemoteCover(doc.storage_path);
   }
   const { error } = await supabase.from("documents")
     .delete().eq("user_id", userId).eq("doc_id", doc.doc_id);

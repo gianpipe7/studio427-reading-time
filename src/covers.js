@@ -1,10 +1,45 @@
 import { covers } from "./idb.js";
 import { getDocument } from "./pdf.js";
+import { supabase, BUCKET } from "./supabase.js";
 
 // Portada = primera página del PDF rasterizada. Es lo que convierte la
 // biblioteca en una estantería en vez de un listado de archivos.
 const WIDTH = 400;              // suficiente para una tarjeta en pantalla retina
 const OBJECT_URLS = new Map();  // doc_id -> object URL vivo
+
+/**
+ * La portada viaja al lado del PDF: {uid}/{doc_id}.pdf → {uid}/{doc_id}.cover.jpg
+ * Sin esto, un libro agregado en el iPhone no tiene portada en el iPad hasta
+ * abrirlo, porque se genera de los bytes locales y ahí todavía no están.
+ */
+export const coverPath = (storagePath) =>
+  storagePath ? storagePath.replace(/\.pdf$/i, "") + ".cover.jpg" : null;
+
+/** Sube la portada para que la vean los otros dispositivos. Silenciosa. */
+export async function uploadCover(storagePath, blob) {
+  const path = coverPath(storagePath);
+  if (!path || !blob) return false;
+  const { error } = await supabase.storage
+    .from(BUCKET).upload(path, blob, { contentType: "image/jpeg", upsert: true })
+    .then((r) => r, (err) => ({ error: err }));
+  return !error;
+}
+
+/** Trae la portada que generó otro dispositivo. */
+export async function downloadCover(docId, storagePath) {
+  const path = coverPath(storagePath);
+  if (!path) return null;
+  const { data, error } = await supabase.storage.from(BUCKET).download(path)
+    .then((r) => r, (err) => ({ error: err }));
+  if (error || !data) return null;
+  await covers.put(docId, data).catch(() => {});
+  return data;
+}
+
+export async function removeRemoteCover(storagePath) {
+  const path = coverPath(storagePath);
+  if (path) await supabase.storage.from(BUCKET).remove([path]).catch(() => {});
+}
 
 /** Rasteriza la portada desde un documento ya abierto. */
 export async function coverFromPdf(docId, pdf) {

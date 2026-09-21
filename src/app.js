@@ -4,7 +4,7 @@ import { createReadingSync } from "./sync.js";
 import { createReader } from "./reader.js";
 import * as lib from "./library.js";
 import * as bm from "./bookmarks.js";
-import { ensureCover, coverUrl, removeCover } from "./covers.js";
+import { ensureCover, coverUrl, removeCover, uploadCover } from "./covers.js";
 import * as series from "./series.js";
 import { clearAll } from "./idb.js";
 import { SORTERS, sortDocs, groupBySeries, seriesLabel, seriesKey } from "./sort.js";
@@ -801,7 +801,9 @@ async function openDoc(docId) {
     // Primera vez que llegan los bytes: la portada aparece cuando termina,
     // sin esperar a que el usuario vuelva a entrar a la biblioteca.
     ensureCover(docId, blob).then((hecha) => {
-      if (hecha && !$("screen-library").hidden) renderLibrary();
+      if (!hecha) return;
+      uploadCover(doc.storage_path, hecha).catch(() => {});
+      if (!$("screen-library").hidden) renderLibrary();
     }).catch(() => {});
     showScreen("screen-reader");
     $("reader-title").textContent = doc.title;
