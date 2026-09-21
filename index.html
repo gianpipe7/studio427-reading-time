@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15130f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Studio427co">
+<title>Studio427co. reading time</title>
+<link rel="manifest" href="./app.webmanifest">
+<link rel="icon" href="./icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+
+<!-- ── Setup: falta config.js ────────────────────────────────────────── -->
+<section id="screen-setup" class="screen center" hidden>
+  <div class="card">
+    <h1>Falta configurar Supabase</h1>
+    <p>Copiá <code>config.example.js</code> a <code>config.js</code> y poné la URL
+       y la anon key de tu proyecto.</p>
+    <pre><code>cp config.example.js config.js</code></pre>
+    <p class="muted">Después corré <code>supabase/0001_schema.sql</code> en el SQL Editor.</p>
+  </div>
+</section>
+
+<!-- ── Auth ─────────────────────────────────────────────────────────── -->
+<section id="screen-auth" class="screen center" hidden>
+  <form class="card" id="auth-form" autocomplete="on">
+    <h1 class="logo logo-big">
+      <img src="./icons/logo.png" alt="Studio 427 Co. — Reading Time">
+    </h1>
+    <p class="muted">Tu posición de lectura te sigue entre dispositivos.</p>
+
+    <label for="auth-email">Email</label>
+    <input id="auth-email" type="email" name="email" inputmode="email"
+           autocomplete="email" required placeholder="vos@ejemplo.com">
+
+    <div id="auth-code-row" hidden>
+      <p class="muted small">Abrí el link del mail <b>en este mismo dispositivo</b>.
+        Si tu proyecto está configurado para mandar código en vez de link,
+        pegalo acá:</p>
+      <label for="auth-code">Código de 6 dígitos (opcional)</label>
+      <input id="auth-code" type="text" inputmode="numeric" autocomplete="one-time-code"
+             pattern="[0-9]{6}" maxlength="6" placeholder="123456">
+    </div>
+
+    <button id="auth-submit" class="primary" type="submit">Enviar link</button>
+    <button id="auth-restart" class="link" type="button" hidden>Usar otro email</button>
+    <p id="auth-msg" class="msg" role="status" aria-live="polite"></p>
+  </form>
+</section>
+
+<!-- ── Biblioteca ───────────────────────────────────────────────────── -->
+<section id="screen-library" class="screen" hidden>
+  <header class="bar">
+    <h1 class="logo logo-badge">
+      <img src="./icons/logo.png" alt="Studio 427 Co.">
+    </h1>
+    <div class="bar-actions">
+      <span id="net-badge" class="badge" hidden>sin conexión</span>
+      <button id="btn-add" class="primary small">Agregar PDF</button>
+      <button id="btn-account" class="ghost small" aria-label="Cuenta">···</button>
+    </div>
+  </header>
+
+  <div id="tabs" class="tabs" role="tablist" aria-label="Colecciones"></div>
+
+  <div class="library-scroll">
+    <section id="hero" class="hero" hidden>
+      <button id="hero-open" class="hero-inner">
+        <div class="cover" id="hero-cover"></div>
+        <div class="hero-body">
+          <div class="hero-kicker">Seguí leyendo</div>
+          <h2 id="hero-title" class="hero-title"></h2>
+          <p id="hero-sub" class="hero-sub"></p>
+          <div id="hero-progress" class="doc-progress"></div>
+          <span class="hero-cta">Continuar</span>
+        </div>
+      </button>
+    </section>
+
+    <div class="section">
+      <div class="section-head">
+        <h2 class="section-title">Tu biblioteca <small id="shelf-count"></small></h2>
+        <label class="sort">
+          <span class="muted small">Ordenar</span>
+          <select id="sort-select" aria-label="Ordenar la biblioteca">
+            <option value="added-desc">Importación: más reciente</option>
+            <option value="added-asc">Importación: más antiguo</option>
+            <option value="title-asc">Nombre: A–Z</option>
+            <option value="title-desc">Nombre: Z–A</option>
+            <option value="series">Saga</option>
+          </select>
+        </label>
+      </div>
+      <ul id="doc-list" class="shelf"></ul>
+      <p id="library-empty" class="empty" hidden>Todavía no agregaste ningún PDF.</p>
+    </div>
+
+    <div id="dropzone" class="dropzone">
+      <p>Arrastrá un PDF acá, o <button id="btn-add-2" class="link">elegí un archivo</button></p>
+      <input id="file-input" type="file" accept="application/pdf" multiple hidden>
+    </div>
+  </div>
+
+  <div id="account-panel" class="panel" hidden>
+    <p class="muted small">Sesión: <span id="account-email"></span></p>
+    <label for="device-name">Nombre de este dispositivo</label>
+    <input id="device-name" type="text" maxlength="40">
+    <p class="muted small">Es el que ve el otro dispositivo cuando te avisa dónde quedaste.</p>
+    <p class="muted small">Cache de PDF: <span id="cache-usage">…</span></p>
+    <button id="btn-clear-cache" class="ghost">Vaciar cache</button>
+    <button id="btn-signout" class="ghost">Cerrar sesión</button>
+  </div>
+</section>
+
+<!-- ── Ficha del documento ──────────────────────────────────────────── -->
+<section id="screen-doc" class="screen" hidden>
+  <header class="bar">
+    <button id="doc-back" class="ghost small" aria-label="Volver">‹</button>
+    <h1>Ficha</h1>
+    <div class="bar-actions">
+      <button id="doc-delete" class="ghost small">Borrar</button>
+    </div>
+  </header>
+
+  <div class="doc-screen">
+    <div class="doc-hero">
+      <div class="cover" id="doc-cover"></div>
+      <div class="doc-hero-body">
+        <div id="doc-shelf-badge" class="shelf-badge"></div>
+        <h2 id="doc-heading"></h2>
+        <p id="doc-byline" class="byline"></p>
+        <div id="doc-progress" class="doc-progress"></div>
+        <div class="doc-actions">
+          <button id="doc-read" class="primary">Leer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="field">
+        <label for="f-title">Nombre</label>
+        <input id="f-title" data-field="title" type="text" maxlength="200">
+      </div>
+      <div class="field">
+        <label for="f-author">Autor</label>
+        <input id="f-author" data-field="author" type="text" maxlength="200">
+      </div>
+      <div class="field">
+        <label for="f-genre">Género</label>
+        <input id="f-genre" data-field="genre" type="text" maxlength="80"
+               placeholder="Novela, ensayo, paper…">
+      </div>
+      <div class="field">
+        <label for="f-language">Idioma</label>
+        <input id="f-language" data-field="language" type="text" maxlength="40" list="idiomas">
+        <datalist id="idiomas">
+          <option value="Español"><option value="Inglés"><option value="Portugués">
+          <option value="Francés"><option value="Italiano"><option value="Alemán">
+        </datalist>
+      </div>
+      <div class="field">
+        <label for="f-published">Fecha de publicación</label>
+        <input id="f-published" data-field="published_on" type="date">
+      </div>
+      <div class="field">
+        <label for="f-series">Saga</label>
+        <input id="f-series" data-field="series" type="text" maxlength="120"
+               placeholder="Dune, Los siete reinos…">
+      </div>
+      <div class="field">
+        <label for="f-series-index">Nº en la saga</label>
+        <input id="f-series-index" data-field="series_index" type="number"
+               step="0.5" min="0" placeholder="1">
+      </div>
+      <div class="field">
+        <label for="f-shelf">Colección</label>
+        <select id="f-shelf" data-field="shelf">
+          <option value="por_leer">Por leer</option>
+          <option value="leyendo">En lectura</option>
+          <option value="terminado">Terminado</option>
+        </select>
+      </div>
+      <div class="field">
+        <label id="rating-label">Calificación</label>
+        <div id="f-rating" class="stars" role="group" aria-labelledby="rating-label"></div>
+      </div>
+      <div class="field">
+        <label for="f-finished">Fecha de lectura completada</label>
+        <input id="f-finished" data-field="finished_at" type="date">
+      </div>
+      <div class="field wide">
+        <label for="f-summary">Descripción</label>
+        <textarea id="f-summary" data-field="summary" maxlength="4000"
+                  placeholder="De qué trata, por qué lo estás leyendo, notas…"></textarea>
+      </div>
+      <p id="doc-saved" class="saved-hint field wide" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Lector ───────────────────────────────────────────────────────── -->
+<section id="screen-reader" class="screen reader" hidden>
+  <header class="bar reader-bar">
+    <button id="btn-back" class="ghost small" aria-label="Volver">‹</button>
+    <h1 id="reader-title" class="reader-title"></h1>
+    <div class="bar-actions">
+      <div class="zoom">
+        <button id="btn-zoom-out" class="ghost small" aria-label="Alejar">−</button>
+        <select id="zoom-select" aria-label="Nivel de zoom">
+          <option value="fit-width">Ajustar al ancho</option>
+          <option value="fit-page">Ajustar a la página</option>
+          <option value="0.5">50%</option>
+          <option value="0.75">75%</option>
+          <option value="1">100%</option>
+          <option value="1.25">125%</option>
+          <option value="1.5">150%</option>
+          <option value="2">200%</option>
+          <option value="4">400%</option>
+        </select>
+        <button id="btn-zoom-in" class="ghost small" aria-label="Acercar">+</button>
+      </div>
+      <button id="btn-search" class="ghost small" aria-label="Buscar en el documento">⌕</button>
+      <button id="btn-bookmark" class="ghost small" aria-label="Marcar página">☆</button>
+      <button id="btn-bookmarks" class="ghost small" aria-label="Ver marcadores">≡</button>
+    </div>
+  </header>
+
+  <div id="viewer" class="viewer" tabindex="0"></div>
+
+  <footer class="pagebar">
+    <input id="page-input" type="number" min="1" step="1" aria-label="Ir a página">
+    <span id="page-total" class="muted"></span>
+    <span id="sync-status" class="sync" role="status" aria-live="polite"></span>
+  </footer>
+
+  <aside id="search-panel" class="panel right" hidden>
+    <h2>Buscar</h2>
+    <form id="search-form" class="search-row">
+      <input id="search-input" type="search" placeholder="Texto a buscar" aria-label="Texto a buscar">
+      <button class="primary small" type="submit">Buscar</button>
+    </form>
+    <p id="search-status" class="muted small" role="status" aria-live="polite"></p>
+    <ul id="search-results" class="bookmark-list"></ul>
+  </aside>
+
+  <aside id="bookmarks-panel" class="panel right" hidden>
+    <h2>Marcadores</h2>
+    <ul id="bookmark-list" class="bookmark-list"></ul>
+    <p id="bookmarks-empty" class="empty small" hidden>Sin marcadores en este documento.</p>
+  </aside>
+</section>
+
+<div id="loading" class="loading" hidden><div class="spinner"></div><span id="loading-text"></span></div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script type="module" src="./src/app.js"></script>
+</body>
+</html>
