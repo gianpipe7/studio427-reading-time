@@ -8,6 +8,7 @@ import { covers } from "./idb.js";
 const CACHE_KEY = "docs:cache";
 const PENDING_DOCS = "docs:pending";
 const META_OUTBOX = "docs:meta";
+const COVERS_UPLOADED = "covers:uploaded";
 const storagePathFor = (userId, docId) => `${userId}/${docId}.pdf`;
 
 /**
@@ -220,21 +221,41 @@ export async function uploadPending(doc, userId) {
  */
 export async function backfillCovers(docs) {
   let hechas = 0;
-  for (const doc of docs) {
-    if (await covers.get(doc.doc_id).catch(() => null)) continue;
+  // Qué portadas ya subimos, para no repetir la subida en cada visita.
+  const subidas = new Set((await kv.get(COVERS_UPLOADED)) || []);
+  let cambio = false;
 
-    const blob = await files.get(doc.doc_id).catch(() => null);
-    if (blob) {
-      // El PDF está acá: la generamos y la subimos para los demás.
-      const portada = await ensureCover(doc.doc_id, blob);
-      if (portada) { hechas++; uploadCover(doc.storage_path, portada).catch(() => {}); }
-      continue;
+  for (const doc of docs) {
+    let portada = await covers.get(doc.doc_id).catch(() => null);
+
+    if (!portada) {
+      const blob = await files.get(doc.doc_id).catch(() => null);
+      if (blob) {
+        portada = await ensureCover(doc.doc_id, blob);
+        if (portada) hechas++;
+      } else if (await downloadCover(doc.doc_id, doc.storage_path)) {
+        // Vino del storage: ya estaba subida, no hay nada que mandar.
+        hechas++;
+        subidas.add(doc.doc_id);
+        cambio = true;
+        continue;
+      }
     }
-    // Sin el PDF, probamos con la que dejó el dispositivo donde se importó.
-    if (await downloadCover(doc.doc_id, doc.storage_path)) hechas++;
+
+    // La tengamos de antes o recién generada, hay que subirla una vez: si no,
+    // los otros dispositivos nunca la ven.
+    if (portada && doc.storage_path && !subidas.has(doc.doc_id)) {
+      if (await uploadCover(doc.storage_path, portada)) {
+        subidas.add(doc.doc_id);
+        cambio = true;
+      }
+    }
   }
+
+  if (cambio) await kv.put(COVERS_UPLOADED, [...subidas]);
   return hechas;
 }
+
 
 /**
  * Poda el cache de PDF hasta el tope, desalojando los menos usados.
